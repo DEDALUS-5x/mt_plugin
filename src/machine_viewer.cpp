@@ -330,7 +330,7 @@ void MachineViewer::update_position(const std::array<double, 3>& xyz) {
 }
 
 void MachineViewer::load_tool(double length, double diameter) {
-  _impl->load_tool(length, diameter);
+  _impl->load_tool(length * scale_factor, diameter * scale_factor);
 }
 
 void MachineViewer::unload_tool() {
