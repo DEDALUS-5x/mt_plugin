@@ -29,12 +29,14 @@ jobs:
             runner: ubuntu-24.04-arm
             plugin_suffix: arm64
             cmake_generator: Ninja
-          - package_name: machinetool-macos-universal
+          - package_name: machinetool-macos-x86_64
             runner: macos-15-intel
-            plugin_suffix: universal
+            plugin_suffix: x86_64
             cmake_generator: Ninja
-            cmake_osx_architectures: x86_64;arm64
-            rerun_c_crate_version: 0.27.3
+          - package_name: machinetool-macos-arm64
+            runner: macos-15
+            plugin_suffix: arm64
+            cmake_generator: Ninja
     defaults:
       run:
         shell: bash
@@ -43,8 +45,6 @@ jobs:
       PLUGIN_SUFFIX: ${{ matrix.plugin_suffix }}
       CMAKE_GENERATOR: ${{ matrix.cmake_generator }}
       CMAKE_GENERATOR_PLATFORM: ${{ matrix.cmake_generator_platform }}
-      CMAKE_OSX_ARCHITECTURES: ${{ matrix.cmake_osx_architectures }}
-      RERUN_C_CRATE_VERSION: ${{ matrix.rerun_c_crate_version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -66,26 +66,6 @@ jobs:
             cmake_args+=(-A "${CMAKE_GENERATOR_PLATFORM}")
           else
             cmake_args+=(-DCMAKE_BUILD_TYPE=Release)
-          fi
-
-          if [ -n "${CMAKE_OSX_ARCHITECTURES:-}" ]; then
-            cmake_args+=("-DCMAKE_OSX_ARCHITECTURES=${CMAKE_OSX_ARCHITECTURES}")
-          fi
-
-          if [ -n "${RERUN_C_CRATE_VERSION:-}" ]; then
-            rustup target add x86_64-apple-darwin
-            cmake -E make_directory "$PWD/.ci-rerun-c"
-            curl -L "https://crates.io/api/v1/crates/rerun_c/${RERUN_C_CRATE_VERSION}/download" \
-              -o "$PWD/.ci-rerun-c/rerun_c-${RERUN_C_CRATE_VERSION}.crate"
-            cmake -E chdir "$PWD/.ci-rerun-c" \
-              cmake -E tar xf "$PWD/.ci-rerun-c/rerun_c-${RERUN_C_CRATE_VERSION}.crate"
-            cargo build \
-              --manifest-path "$PWD/.ci-rerun-c/rerun_c-${RERUN_C_CRATE_VERSION}/Cargo.toml" \
-              --release \
-              --target x86_64-apple-darwin
-            cmake_args+=(
-              "-DRERUN_MACOS_X64_C_LIB=$PWD/.ci-rerun-c/rerun_c-${RERUN_C_CRATE_VERSION}/target/x86_64-apple-darwin/release/librerun_c.a"
-            )
           fi
 
           cmake "${cmake_args[@]}"
