@@ -15,6 +15,7 @@ project(machinetool VERSION 2.0.0 LANGUAGES CXX)
 if(CMAKE_BUILD_TYPE STREQUAL "")
   set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build." FORCE)
 endif()
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
   set(CMAKE_INSTALL_PREFIX "/Users/p4010/usr/local" CACHE PATH "Install path prefix, prepended onto install directories." FORCE)
 endif()
@@ -59,6 +60,13 @@ FetchContent_Declare(json
 FetchContent_Declare(rerun_cpp_sdk
   URL https://github.com/rerun-io/rerun/releases/download/0.27.3/rerun_cpp_sdk.zip
   EXCLUDE_FROM_ALL
+  # Arrow (a rerun dependency) is downloaded as a tarball, so "git apply" in
+  # rerun's own PATCH_COMMAND always fails silently. We replace it with a
+  # cmake -P script that applies the same fixes without needing git history.
+  # See patches/patch_arrow_cmake4.cmake for details.
+  PATCH_COMMAND ${CMAKE_COMMAND}
+    -DPATCHES_DIR=${CMAKE_CURRENT_SOURCE_DIR}/patches
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/patches/patch_rerun_sdk.cmake
 )
 
 # rerun_cpp tests call this helper when building standalone; define a no-op fallback.
