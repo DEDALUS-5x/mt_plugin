@@ -60,6 +60,12 @@ FetchContent_Declare(rerun_cpp_sdk
   URL https://github.com/rerun-io/rerun/releases/download/0.27.3/rerun_cpp_sdk.zip
   EXCLUDE_FROM_ALL
 )
+set(BUNDLED_ARROW_VERSION "23.0.1" CACHE STRING "Apache Arrow version used by Rerun's bundled static Arrow build.")
+set(BUNDLED_ARROW_SHA256 "bd09adb4feac11fe49d1604f296618866702be610c86e2d513b561d877de6b18" CACHE STRING "SHA256 for the bundled Apache Arrow source archive.")
+set(BUNDLED_ARROW_URL
+  "https://github.com/apache/arrow/releases/download/apache-arrow-${BUNDLED_ARROW_VERSION}/apache-arrow-${BUNDLED_ARROW_VERSION}.tar.gz"
+  CACHE STRING "Apache Arrow source archive used by Rerun's bundled static Arrow build."
+)
 
 # rerun_cpp tests call this helper when building standalone; define a no-op fallback.
 if(NOT COMMAND rerun_strict_warning_settings)
@@ -72,7 +78,78 @@ if(NOT TARGET loguru::loguru)
   add_library(loguru::loguru INTERFACE IMPORTED GLOBAL)
 endif()
 
-FetchContent_MakeAvailable(pugg json rerun_cpp_sdk)
+FetchContent_MakeAvailable(pugg json)
+
+FetchContent_GetProperties(rerun_cpp_sdk)
+if(NOT rerun_cpp_sdk_POPULATED)
+  if(POLICY CMP0169)
+    cmake_policy(PUSH)
+    cmake_policy(SET CMP0169 OLD)
+  endif()
+  FetchContent_Populate(rerun_cpp_sdk)
+  if(POLICY CMP0169)
+    cmake_policy(POP)
+  endif()
+endif()
+
+set(_rerun_arrow_cmake "${rerun_cpp_sdk_SOURCE_DIR}/download_and_build_arrow.cmake")
+file(READ "${_rerun_arrow_cmake}" _rerun_arrow_cmake_content)
+set(_rerun_arrow_cmake_patched "${_rerun_arrow_cmake_content}")
+string(REGEX REPLACE
+  "URL https://github\\.com/apache/arrow/releases/download/apache-arrow-[0-9]+\\.[0-9]+\\.[0-9]+/apache-arrow-[0-9]+\\.[0-9]+\\.[0-9]+\\.tar\\.gz"
+  "URL ${BUNDLED_ARROW_URL}"
+  _rerun_arrow_cmake_patched
+  "${_rerun_arrow_cmake_patched}"
+)
+string(REGEX REPLACE
+  "URL_MD5 [0-9a-fA-F]+"
+  "URL_HASH SHA256=${BUNDLED_ARROW_SHA256}"
+  _rerun_arrow_cmake_patched
+  "${_rerun_arrow_cmake_patched}"
+)
+string(REGEX REPLACE
+  "URL_HASH SHA256=[0-9a-fA-F]+"
+  "URL_HASH SHA256=${BUNDLED_ARROW_SHA256}"
+  _rerun_arrow_cmake_patched
+  "${_rerun_arrow_cmake_patched}"
+)
+
+if(APPLE)
+  string(REPLACE
+    "set(ARROW_BUNDLED_DEPENDENCIES_FILE \${ARROW_DOWNLOAD_PATH}/lib/libarrow_bundled_dependencies.a)"
+    "set(ARROW_BUNDLED_DEPENDENCIES_FILE \${ARROW_LIBRARY_FILE})"
+    _rerun_arrow_cmake_patched
+    "${_rerun_arrow_cmake_patched}"
+  )
+  string(REPLACE
+    "BUILD_BYPRODUCTS \${ARROW_LIBRARY_FILE} \${ARROW_BUNDLED_DEPENDENCIES_FILE}"
+    "BUILD_BYPRODUCTS \${ARROW_LIBRARY_FILE}"
+    _rerun_arrow_cmake_patched
+    "${_rerun_arrow_cmake_patched}"
+  )
+  string(REPLACE
+    "target_link_libraries(rerun_arrow_target INTERFACE arrow_targetBundledDeps)"
+    "# target_link_libraries(rerun_arrow_target INTERFACE arrow_targetBundledDeps)"
+    _rerun_arrow_cmake_patched
+    "${_rerun_arrow_cmake_patched}"
+  )
+  string(REPLACE
+    "-DARROW_MIMALLOC=ON"
+    "-DARROW_MIMALLOC=OFF"
+    _rerun_arrow_cmake_patched
+    "${_rerun_arrow_cmake_patched}"
+  )
+endif()
+
+if(NOT _rerun_arrow_cmake_patched STREQUAL _rerun_arrow_cmake_content)
+  file(WRITE "${_rerun_arrow_cmake}" "${_rerun_arrow_cmake_patched}")
+  message(STATUS "Pinned bundled Arrow to ${BUNDLED_ARROW_VERSION}.")
+  if(APPLE)
+    message(STATUS "Disabled bundled Arrow mimalloc for macOS static builds.")
+  endif()
+endif()
+
+add_subdirectory("${rerun_cpp_sdk_SOURCE_DIR}" "${rerun_cpp_sdk_BINARY_DIR}" EXCLUDE_FROM_ALL)
 
 FetchContent_Populate(plugin 
   GIT_REPOSITORY https://github.com/pbosetti/mads_plugin.git
