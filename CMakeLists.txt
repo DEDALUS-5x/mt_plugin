@@ -11,6 +11,11 @@
 # Creation date: 2026-03-05T19:28:13.964+0100
 # NOTICE: MADS Version 2.0.0
 cmake_minimum_required(VERSION 3.28)
+# Match the prebuilt rerun_c library's deployment target to suppress
+# "was built for newer macOS version" linker warnings.
+if(APPLE AND NOT CMAKE_OSX_DEPLOYMENT_TARGET)
+  set(CMAKE_OSX_DEPLOYMENT_TARGET "26.2" CACHE STRING "Minimum macOS deployment target")
+endif()
 project(machinetool VERSION 2.0.0 LANGUAGES CXX)
 if(CMAKE_BUILD_TYPE STREQUAL "")
   set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build." FORCE)
