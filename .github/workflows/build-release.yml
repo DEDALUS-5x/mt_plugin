@@ -15,26 +15,22 @@ jobs:
         include:
           - name: macOS-arm64
             runner: macos-15
-            plugin_suffix: arm64
             # Override the local 26.2 default set in CMakeLists.txt
             extra_cmake_flags: -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0
             artifact: machinetool-macos-arm64
 
           - name: Windows-x86_64
             runner: windows-latest
-            plugin_suffix: x86_64
             extra_cmake_flags: ""
             artifact: machinetool-windows-x86_64
 
           - name: Linux-x86_64
             runner: ubuntu-latest
-            plugin_suffix: x86_64
             extra_cmake_flags: ""
             artifact: machinetool-linux-x86_64
 
           - name: Linux-arm64
             runner: ubuntu-24.04-arm
-            plugin_suffix: arm64
             extra_cmake_flags: ""
             artifact: machinetool-linux-arm64
 
@@ -71,7 +67,6 @@ jobs:
           cmake -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/install" \
-            -DPLUGIN_SUFFIX=${{ matrix.plugin_suffix }} \
             ${{ matrix.extra_cmake_flags }}
 
       # ── Build & install ───────────────────────────────────────────────────
