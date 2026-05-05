@@ -115,7 +115,7 @@ struct MachineViewer::Impl {
 
     const auto length_f = static_cast<float>(length);
     const auto radius_f = static_cast<float>(diameter * 0.5);
-    const auto center = rerun::components::PoseTranslation3D(
+    const auto center = rerun::components::Translation3D(
       0.0F,
       0.0F,
       -0.5F * length_f + static_cast<float>(_tool_z_offset)
