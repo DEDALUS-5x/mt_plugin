@@ -104,20 +104,11 @@ jobs:
       - name: Print dependency build logs
         if: failure()
         run: |
-          log_dir=build/_deps/rerun_cpp_sdk-build/arrow/src/arrow_cpp-stamp
-          if [ ! -d "${log_dir}" ]; then
-            exit 0
-          fi
-
-          find "${log_dir}" \
+          find build/_deps/rerun_cpp_sdk-build/arrow/src/arrow_cpp-stamp \
             -type f \
-            \( -name 'arrow_cpp-build-*.log' -o -name 'arrow_cpp-configure-*.log' \) |
-            sort |
-            while IFS= read -r log; do
-              echo "::group::${log}"
-              tail -n 240 "${log}"
-              echo "::endgroup::"
-            done
+            \( -name 'arrow_cpp-build-*.log' -o -name 'arrow_cpp-configure-*.log' \) \
+            -print \
+            -exec sed -n '1,240p' {} \;
 
       - name: Install
         run: cmake --install build --config Release --prefix "dist/${PACKAGE_NAME}"
