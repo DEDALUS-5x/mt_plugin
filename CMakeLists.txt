@@ -56,30 +56,8 @@ FetchContent_Declare(json
   EXCLUDE_FROM_ALL
 )
 
-set(RERUN_CPP_SDK_VERSION "0.27.3" CACHE STRING "Rerun C++ SDK version.")
-set(RERUN_CPP_SDK_URL
-  "https://github.com/rerun-io/rerun/releases/download/${RERUN_CPP_SDK_VERSION}/rerun_cpp_sdk.zip"
-  CACHE STRING "Rerun C++ SDK archive URL."
-)
-# Rerun 0.27.x no longer ships macOS x86_64 rerun_c, so universal
-# builds must provide that slice separately and lipo it with arm64.
-set(RERUN_MACOS_X64_C_LIB "" CACHE FILEPATH "Path to librerun_c.a for macOS x86_64 universal builds.")
-
-set(_rerun_macos_universal OFF)
-if(APPLE)
-  list(FIND CMAKE_OSX_ARCHITECTURES "x86_64" _rerun_macos_x64_index)
-  list(FIND CMAKE_OSX_ARCHITECTURES "arm64" _rerun_macos_arm64_index)
-  if(NOT _rerun_macos_x64_index EQUAL -1 AND NOT _rerun_macos_arm64_index EQUAL -1)
-    set(_rerun_macos_universal ON)
-    set(_rerun_macos_universal_c_lib
-      "${CMAKE_CURRENT_BINARY_DIR}/_deps/rerun_cpp_sdk-src/lib/librerun_c__macos_universal.a"
-    )
-    set(RERUN_C_LIB "${_rerun_macos_universal_c_lib}" CACHE PATH "Universal macOS rerun_c static library." FORCE)
-  endif()
-endif()
-
 FetchContent_Declare(rerun_cpp_sdk
-  URL ${RERUN_CPP_SDK_URL}
+  URL https://github.com/rerun-io/rerun/releases/download/0.27.3/rerun_cpp_sdk.zip
   EXCLUDE_FROM_ALL
 )
 
@@ -95,28 +73,6 @@ if(NOT TARGET loguru::loguru)
 endif()
 
 FetchContent_MakeAvailable(pugg json rerun_cpp_sdk)
-
-if(_rerun_macos_universal)
-  set(_rerun_macos_arm64_c_lib "${rerun_cpp_sdk_SOURCE_DIR}/lib/librerun_c__macos_arm64.a")
-  if(RERUN_MACOS_X64_C_LIB STREQUAL "")
-    message(FATAL_ERROR "RERUN_MACOS_X64_C_LIB must point to a macOS x86_64 rerun_c static library.")
-  endif()
-  if(NOT EXISTS "${RERUN_MACOS_X64_C_LIB}")
-    message(FATAL_ERROR "RERUN_MACOS_X64_C_LIB does not exist: ${RERUN_MACOS_X64_C_LIB}")
-  endif()
-  if(NOT EXISTS "${_rerun_macos_arm64_c_lib}")
-    message(FATAL_ERROR "Rerun SDK arm64 rerun_c library does not exist: ${_rerun_macos_arm64_c_lib}")
-  endif()
-
-  execute_process(
-    COMMAND lipo -create "${RERUN_MACOS_X64_C_LIB}" "${_rerun_macos_arm64_c_lib}" -output "${RERUN_C_LIB}"
-    RESULT_VARIABLE _rerun_lipo_result
-    ERROR_VARIABLE _rerun_lipo_error
-  )
-  if(NOT _rerun_lipo_result EQUAL 0)
-    message(FATAL_ERROR "Failed to create universal macOS rerun_c library: ${_rerun_lipo_error}")
-  endif()
-endif()
 
 FetchContent_Populate(plugin 
   GIT_REPOSITORY https://github.com/pbosetti/mads_plugin.git

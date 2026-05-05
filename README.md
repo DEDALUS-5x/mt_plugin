@@ -2,7 +2,7 @@
 
 This is a Sink plugin for [MADS](https://github.com/MADS-NET/MADS). 
 
-This plugin visualizes on [Rerun](https://rerun.io) a 3D model of a machine tool, updating axes positions according to the received commands. It is just a viewer and does not provide any dinamics simulation. Foor that, head to <https://gitbub.com/mads-net/FMU_agent>.
+<provide here some introductory info>
 
 *Required MADS version: 2.0.0.*
 
@@ -16,7 +16,7 @@ Currently, the supported platforms are:
 * **Windows**
 
 
-## Build from source
+## Installation
 
 Linux and MacOS:
 
@@ -33,22 +33,6 @@ cmake -Bbuild -DCMAKE_INSTALL_PREFIX="$(mads -p)"
 cmake --build build --config Release
 cmake --install build --config Release
 ```
-
-## Install from release
-
-Download a release from GitHub, unzip it, then:
-
-## Requirement: Rerun
-
-The easiest way to install the Rerun viewer is via pip:
-
-```sh
-python3 -mvenv .venv
-source .venv/bin/activate # or, on Windows: .venv\script\activate.bat
-pip install rerun-sdk==0.27.3
-```
-
-Then launch the agent from same shell.
 
 
 ## INI settings
