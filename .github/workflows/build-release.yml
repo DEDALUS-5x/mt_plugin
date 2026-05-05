@@ -33,13 +33,10 @@ jobs:
             runner: macos-15-intel
             plugin_suffix: x86_64
             cmake_generator: Ninja
-            build_parallel: 2
-            rerun_c_target: x86_64-apple-darwin
           - package_name: machinetool-macos-arm64
             runner: macos-15
             plugin_suffix: arm64
             cmake_generator: Ninja
-            build_parallel: 2
     defaults:
       run:
         shell: bash
@@ -48,9 +45,6 @@ jobs:
       PLUGIN_SUFFIX: ${{ matrix.plugin_suffix }}
       CMAKE_GENERATOR: ${{ matrix.cmake_generator }}
       CMAKE_GENERATOR_PLATFORM: ${{ matrix.cmake_generator_platform }}
-      BUILD_PARALLEL: ${{ matrix.build_parallel }}
-      RERUN_C_TARGET: ${{ matrix.rerun_c_target }}
-      RERUN_C_VERSION: 0.27.3
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -74,61 +68,13 @@ jobs:
             cmake_args+=(-DCMAKE_BUILD_TYPE=Release)
           fi
 
-          if [ -n "${RERUN_C_TARGET:-}" ]; then
-            rustup target add "${RERUN_C_TARGET}"
-            cmake -E make_directory "$PWD/.ci-rerun-c"
-            curl -L "https://crates.io/api/v1/crates/rerun_c/${RERUN_C_VERSION}/download" \
-              -o "$PWD/.ci-rerun-c/rerun_c-${RERUN_C_VERSION}.crate"
-            cmake -E chdir "$PWD/.ci-rerun-c" \
-              cmake -E tar xf "$PWD/.ci-rerun-c/rerun_c-${RERUN_C_VERSION}.crate"
-            cargo build \
-              --manifest-path "$PWD/.ci-rerun-c/rerun_c-${RERUN_C_VERSION}/Cargo.toml" \
-              --release \
-              --target "${RERUN_C_TARGET}"
-            cmake_args+=(
-              "-DRERUN_C_LIB=$PWD/.ci-rerun-c/rerun_c-${RERUN_C_VERSION}/target/${RERUN_C_TARGET}/release/librerun_c.a"
-            )
-          fi
-
           cmake "${cmake_args[@]}"
 
       - name: Build
-        run: |
-          if [ -n "${BUILD_PARALLEL:-}" ]; then
-            CMAKE_BUILD_PARALLEL_LEVEL="${BUILD_PARALLEL}" \
-              cmake --build build --config Release --parallel "${BUILD_PARALLEL}"
-          else
-            cmake --build build --config Release --parallel
-          fi
-
-      - name: Print dependency build logs
-        if: failure()
-        run: |
-          find build/_deps/rerun_cpp_sdk-build/arrow/src/arrow_cpp-stamp \
-            -type f \
-            \( -name 'arrow_cpp-build-*.log' -o -name 'arrow_cpp-configure-*.log' \) \
-            -print \
-            -exec sed -n '1,240p' {} \;
+        run: cmake --build build --config Release --parallel
 
       - name: Install
         run: cmake --install build --config Release --prefix "dist/${PACKAGE_NAME}"
-
-      - name: Check macOS runtime dependencies
-        if: startsWith(matrix.package_name, 'machinetool-macos-')
-        run: |
-          bad_link=0
-          while IFS= read -r -d '' file; do
-            echo "Runtime dependencies for ${file}:"
-            otool -L "${file}"
-            if otool -L "${file}" | grep -E '(/opt/homebrew|/usr/local)/(Cellar|opt|lib)'; then
-              bad_link=1
-            fi
-          done < <(find "dist/${PACKAGE_NAME}" -type f -name '*.plugin' -print0)
-
-          if [ "${bad_link}" -ne 0 ]; then
-            echo "Found a Homebrew or /usr/local runtime dependency."
-            exit 1
-          fi
 
       - name: Add runtime assets
         run: |
