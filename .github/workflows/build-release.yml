@@ -1,0 +1,161 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  # ────────────────────────────────────────────────────────────────────────────
+  build:
+    name: Build — ${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS-arm64
+            runner: macos-15
+            plugin_suffix: arm64
+            # Override the local 26.2 default set in CMakeLists.txt
+            extra_cmake_flags: -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0
+            artifact: machinetool-macos-arm64
+
+          - name: Windows-x86_64
+            runner: windows-latest
+            plugin_suffix: x86_64
+            extra_cmake_flags: ""
+            artifact: machinetool-windows-x86_64
+
+          - name: Linux-x86_64
+            runner: ubuntu-latest
+            plugin_suffix: x86_64
+            extra_cmake_flags: ""
+            artifact: machinetool-linux-x86_64
+
+          - name: Linux-arm64
+            runner: ubuntu-24.04-arm
+            plugin_suffix: arm64
+            extra_cmake_flags: ""
+            artifact: machinetool-linux-arm64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # ── Platform-specific tool setup ──────────────────────────────────────
+
+      - name: Install Ninja (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ninja-build
+
+      - name: Install Ninja (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ninja
+
+      - name: Set up MSVC + Ninja (Windows)
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Install Ninja (Windows)
+        if: runner.os == 'Windows'
+        run: choco install ninja --no-progress -y
+
+      # ── Configure ─────────────────────────────────────────────────────────
+
+      - name: Configure
+        shell: bash
+        run: |
+          cmake -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/install" \
+            -DPLUGIN_SUFFIX=${{ matrix.plugin_suffix }} \
+            ${{ matrix.extra_cmake_flags }}
+
+      # ── Build & install ───────────────────────────────────────────────────
+
+      - name: Build
+        run: cmake --build build --config Release -j4
+
+      - name: Install
+        run: cmake --install build --config Release
+
+      # ── Package ───────────────────────────────────────────────────────────
+
+      - name: Stage release layout
+        shell: bash
+        run: |
+          STAGE="${{ github.workspace }}/stage"
+          mkdir -p "$STAGE"
+          # Copy installed subdirs that exist (bin/ and/or lib/ depend on OS)
+          for d in bin lib; do
+            src="${{ github.workspace }}/install/$d"
+            [ -d "$src" ] && cp -r "$src" "$STAGE/$d"
+          done
+          cp -r models "$STAGE/models"
+          cp README.md "$STAGE/README.md"
+
+      - name: Create zip (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          cd "${{ github.workspace }}/stage"
+          zip -r "${{ github.workspace }}/${{ matrix.artifact }}.zip" .
+
+      - name: Create zip (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "${{ github.workspace }}\stage\*" `
+            -DestinationPath "${{ github.workspace }}\${{ matrix.artifact }}.zip"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}.zip
+          retention-days: 1
+
+  # ────────────────────────────────────────────────────────────────────────────
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: false
+
+      - name: Compute tag and title
+        id: meta
+        run: |
+          VERSION=$(grep -m1 'project.*VERSION' CMakeLists.txt \
+            | sed 's/.*VERSION \+\([0-9][0-9.]*\).*/\1/')
+          SHORT_SHA="${GITHUB_SHA::8}"
+          echo "tag=v${VERSION}-build.${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+          echo "title=v${VERSION} (build #${GITHUB_RUN_NUMBER} · ${SHORT_SHA})" >> "$GITHUB_OUTPUT"
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: ${{ steps.meta.outputs.title }}
+          body: |
+            Automated build from [`${{ github.sha }}`](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}) on branch `${{ github.ref_name }}`.
+
+            | Artifact | Platform |
+            |----------|----------|
+            | `machinetool-macos-arm64.zip` | macOS arm64 |
+            | `machinetool-windows-x86_64.zip` | Windows x86_64 |
+            | `machinetool-linux-x86_64.zip` | Linux x86_64 |
+            | `machinetool-linux-arm64.zip` | Linux arm64 |
+          files: artifacts/**/*.zip
+          fail_on_unmatched_files: true
