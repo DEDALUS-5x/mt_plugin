@@ -1,0 +1,145 @@
+name: Build and Release
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ matrix.package_name }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - package_name: machinetool-windows-amd64
+            runner: windows-2025
+            plugin_suffix: amd64
+            cmake_generator: Visual Studio 17 2022
+            cmake_generator_platform: x64
+          - package_name: machinetool-linux-x86_64
+            runner: ubuntu-24.04
+            plugin_suffix: x86_64
+            cmake_generator: Ninja
+          - package_name: machinetool-linux-arm64
+            runner: ubuntu-24.04-arm
+            plugin_suffix: arm64
+            cmake_generator: Ninja
+          - package_name: machinetool-macos-universal
+            runner: macos-15-intel
+            plugin_suffix: universal
+            cmake_generator: Ninja
+            cmake_osx_architectures: x86_64;arm64
+            rerun_c_crate_version: 0.27.3
+    defaults:
+      run:
+        shell: bash
+    env:
+      PACKAGE_NAME: ${{ matrix.package_name }}
+      PLUGIN_SUFFIX: ${{ matrix.plugin_suffix }}
+      CMAKE_GENERATOR: ${{ matrix.cmake_generator }}
+      CMAKE_GENERATOR_PLATFORM: ${{ matrix.cmake_generator_platform }}
+      CMAKE_OSX_ARCHITECTURES: ${{ matrix.cmake_osx_architectures }}
+      RERUN_C_CRATE_VERSION: ${{ matrix.rerun_c_crate_version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Configure
+        run: |
+          cmake_args=(
+            -S .
+            -B build
+            -DCMAKE_INSTALL_PREFIX="$PWD/dist/${PACKAGE_NAME}"
+            -DPLUGIN_SUFFIX="${PLUGIN_SUFFIX}"
+          )
+
+          if [ -n "${CMAKE_GENERATOR:-}" ]; then
+            cmake_args+=(-G "${CMAKE_GENERATOR}")
+          fi
+
+          if [ -n "${CMAKE_GENERATOR_PLATFORM:-}" ]; then
+            cmake_args+=(-A "${CMAKE_GENERATOR_PLATFORM}")
+          else
+            cmake_args+=(-DCMAKE_BUILD_TYPE=Release)
+          fi
+
+          if [ -n "${CMAKE_OSX_ARCHITECTURES:-}" ]; then
+            cmake_args+=("-DCMAKE_OSX_ARCHITECTURES=${CMAKE_OSX_ARCHITECTURES}")
+          fi
+
+          if [ -n "${RERUN_C_CRATE_VERSION:-}" ]; then
+            rustup target add x86_64-apple-darwin
+            cmake -E make_directory "$PWD/.ci-rerun-c"
+            curl -L "https://crates.io/api/v1/crates/rerun_c/${RERUN_C_CRATE_VERSION}/download" \
+              -o "$PWD/.ci-rerun-c/rerun_c-${RERUN_C_CRATE_VERSION}.crate"
+            cmake -E chdir "$PWD/.ci-rerun-c" \
+              cmake -E tar xf "$PWD/.ci-rerun-c/rerun_c-${RERUN_C_CRATE_VERSION}.crate"
+            cargo build \
+              --manifest-path "$PWD/.ci-rerun-c/rerun_c-${RERUN_C_CRATE_VERSION}/Cargo.toml" \
+              --release \
+              --target x86_64-apple-darwin
+            cmake_args+=(
+              "-DRERUN_MACOS_X64_C_LIB=$PWD/.ci-rerun-c/rerun_c-${RERUN_C_CRATE_VERSION}/target/x86_64-apple-darwin/release/librerun_c.a"
+            )
+          fi
+
+          cmake "${cmake_args[@]}"
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      - name: Install
+        run: cmake --install build --config Release --prefix "dist/${PACKAGE_NAME}"
+
+      - name: Add runtime assets
+        run: |
+          cmake -E copy_directory models "dist/${PACKAGE_NAME}/models"
+          cmake -E copy_if_different README.md "dist/${PACKAGE_NAME}/README.md"
+
+      - name: Archive package
+        run: cmake -E chdir dist cmake -E tar cf "${PACKAGE_NAME}.zip" --format=zip -- "${PACKAGE_NAME}"
+
+      - name: Upload package
+        uses: actions/upload-artifact@v7
+        with:
+          path: dist/${{ matrix.package_name }}.zip
+          if-no-files-found: error
+          archive: false
+
+  release:
+    name: Publish GitHub release
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: write
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Download packages
+        uses: actions/download-artifact@v8
+        with:
+          path: release-assets
+          pattern: machinetool-*
+          merge-multiple: true
+          skip-decompress: true
+
+      - name: Create release
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          short_sha="${GITHUB_SHA::7}"
+          tag_name="build-${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}-${short_sha}"
+
+          gh release create "${tag_name}" release-assets/*.zip \
+            --target "${GITHUB_SHA}" \
+            --title "machinetool ${short_sha}" \
+            --notes "Automated build from main at ${GITHUB_SHA}." \
+            --latest=false
