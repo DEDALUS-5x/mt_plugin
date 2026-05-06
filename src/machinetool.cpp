@@ -111,6 +111,7 @@ public:
         }
 
         _viewer->load_tool(tool.at("length").get<double>(), tool.at("diameter").get<double>());
+        _viewer->set_tool_z_offset(tool.value("z_offset", 0.0)/1000.0);
       }
 
       if (input.contains("metrics")) {
@@ -259,7 +260,7 @@ private:
       if (!value.at("z_offset").is_number()) {
         throw invalid_argument("Field 'tool.z_offset' must be numeric.");
       }
-      tool.z_offset = value.at("z_offset").get<double>();
+      tool.z_offset = value.at("z_offset").get<double>()/1000.0;
     }
 
     return tool;
