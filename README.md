@@ -103,7 +103,8 @@ The plugin moves the three axes and adjusts the tool size according to the follo
   },
   "tool": {
     "length": <scalar>,
-    "diameter": <scalar>
+    "diameter": <scalar>,
+    "z_offset": <scalar>
   },
   "metrics": {
     <map of custom key-values>
@@ -121,7 +122,9 @@ The plugin supports the following settings in the INI file:
 
 ```ini
 [machinetool]
-# Describe the settings available to the plugin
+sub_topic = ["fmu_machine_tool"]
+initial_position = [0, 0, 200]
+tool = {length = 100, diameter = 20, z_offset = 50}
 ```
 
 All settings are optional; if omitted, the default values are used.

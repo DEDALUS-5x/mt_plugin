@@ -14,7 +14,6 @@
 #include <vector>
 
 #include <rerun.hpp>
-#include <iostream>
 
 namespace {
 
@@ -121,7 +120,6 @@ struct MachineViewer::Impl {
       0.0F,
       -0.5F * length_f + static_cast<float>(_tool_z_offset)
     );
-    std::cout << "Loading tool with length " << length << " and diameter " << diameter << " and z_offset " << _tool_z_offset << std::endl;
 
     const auto tool = rerun::Cylinders3D::from_lengths_and_radii({length_f}, {radius_f})
                         .with_centers({center})
