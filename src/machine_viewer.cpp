@@ -101,6 +101,16 @@ struct MachineViewer::Impl {
     _rec.log(_root_path + "/metrics/" + sanitize_metric_name(name), rerun::Scalars(value));
   }
 
+  void log_string(const std::string& name, const std::string& value) {
+    if (name.empty()) {
+      throw std::invalid_argument("MachineViewer string metric name cannot be empty.");
+    }
+
+    ++_tick;
+    _rec.set_time_sequence("tick", _tick);
+    _rec.log(_root_path + "/metrics/" + sanitize_metric_name(name), rerun::TextLog(value));
+  }
+
   void load_tool(double length, double diameter) {
     if (length == 0 || diameter == 0) {
       unload_tool();
@@ -339,6 +349,10 @@ void MachineViewer::unload_tool() {
 
 void MachineViewer::log_scalar(const std::string& name, double value) {
   _impl->log_scalar(name, value);
+}
+
+void MachineViewer::log_string(const std::string& name, const std::string& value) {
+  _impl->log_string(name, value);
 }
 
 double MachineViewer::tool_z_offset() const {

@@ -121,11 +121,14 @@ public:
         }
 
         for (const auto& [name, value] : input.at("metrics").items()) {
-          if (!value.is_number()) {
-            _error = "Metric '" + name + "' is not numeric.";
+          if (value.is_number()) {
+            _viewer->log_scalar(name, value.get<double>());
+          } else if (value.is_string()) {
+            _viewer->log_string(name, value.get<string>());
+          } else {
+            _error = "Metric '" + name + "' can't be logged.";
             return return_type::warning;
           }
-          _viewer->log_scalar(name, value.get<double>());
         }
       }
     } catch (const exception& ex) {
