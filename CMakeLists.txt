@@ -177,7 +177,7 @@ else()
 endif()
 
 # machine_viewer_example is a standalone executable, always installed to bin/
-install(TARGETS machine_viewer_example
-  RUNTIME DESTINATION bin
-  COMPONENT MadsApps
-)
+# install(TARGETS machine_viewer_example
+#   RUNTIME DESTINATION bin
+#   COMPONENT MadsApps
+# )
