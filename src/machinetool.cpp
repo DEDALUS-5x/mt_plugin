@@ -22,6 +22,7 @@
 // other includes as needed here
 #include <array>
 #include <chrono>
+#include <cmath>
 #include <memory>
 #include <sstream>
 #include <stdexcept>
@@ -63,6 +64,8 @@ public:
     }
 
     try {
+      _viewer->set_time_seconds(parse_timecode(input));
+
       if (input.contains("input") && input["input"]["setpoint"].is_array()) {
         _viewer->log_scalar("setpoint_x", input["input"]["setpoint"][0].get<double>());
         _viewer->log_scalar("setpoint_y", input["input"]["setpoint"][1].get<double>());
@@ -295,6 +298,21 @@ private:
     return {value[0].get<double>(), value[1].get<double>(), value[2].get<double>()};
   }
 
+  static double parse_timecode(const json& input) {
+    if (!input.contains("timecode")) {
+      throw invalid_argument("Input field 'timecode' is required.");
+    }
+    if (!input.at("timecode").is_number()) {
+      throw invalid_argument("Input field 'timecode' must be numeric seconds from last midnight.");
+    }
+
+    const double timecode = input.at("timecode").get<double>();
+    if (!std::isfinite(timecode) || timecode < 0.0 || timecode >= 24.0 * 60.0 * 60.0) {
+      throw invalid_argument("Input field 'timecode' must be in the range [0, 86400).");
+    }
+    return timecode;
+  }
+
   unique_ptr<MachineViewer> _viewer;
   map<string, string> _init_info;
 };
@@ -350,6 +368,7 @@ int main(int argc, char const *argv[]) {
       const double alpha = static_cast<double>(i) / static_cast<double>(total_steps);
       const double position = 0.5 * alpha;
       json input;
+      input["timecode"] = static_cast<double>(i) * chrono::duration<double>(tick).count();
       input["position"] = {position, position, position};
       input["metrics"] = {{"progress", alpha}};
 

@@ -65,10 +65,11 @@ struct MachineViewer::Impl {
     update_position({0.0, 0.0, 0.0});
   }
 
-  void update_position(const std::array<double, 3>& xyz) {
-    ++_tick;
-    _rec.set_time_sequence("tick", _tick);
+  void set_time_seconds(double seconds) {
+    _rec.set_time_duration_secs("time", seconds);
+  }
 
+  void update_position(const std::array<double, 3>& xyz) {
     for (std::size_t i = 0; i < kAxes.size(); ++i) {
       const std::string axis = kAxes[i];
       const auto translation = rerun::components::Translation3D(axis_translation(axis, xyz[i]));
@@ -96,8 +97,6 @@ struct MachineViewer::Impl {
       throw std::invalid_argument("MachineViewer scalar name cannot be empty.");
     }
 
-    ++_tick;
-    _rec.set_time_sequence("tick", _tick);
     _rec.log(_root_path + "/metrics/" + sanitize_metric_name(name), rerun::Scalars(value));
   }
 
@@ -106,8 +105,6 @@ struct MachineViewer::Impl {
       throw std::invalid_argument("MachineViewer string metric name cannot be empty.");
     }
 
-    ++_tick;
-    _rec.set_time_sequence("tick", _tick);
     _rec.log(_root_path + "/metrics/" + sanitize_metric_name(name), rerun::TextLog(value));
   }
 
@@ -309,7 +306,6 @@ private:
   double _tool_length = 0.0;
   double _tool_diameter = 0.0;
   std::vector<rerun::datatypes::Vec3D> _tool_tip_trace;
-  std::int64_t _tick = 0;
 };
 
 MachineViewer::MachineViewer(
@@ -345,6 +341,10 @@ void MachineViewer::load_tool(double length, double diameter) {
 
 void MachineViewer::unload_tool() {
   _impl->unload_tool();
+}
+
+void MachineViewer::set_time_seconds(double seconds) {
+  _impl->set_time_seconds(seconds);
 }
 
 void MachineViewer::log_scalar(const std::string& name, double value) {

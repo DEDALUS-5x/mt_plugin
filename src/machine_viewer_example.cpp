@@ -58,6 +58,7 @@ int main(int argc, char* argv[]) {
       const double alpha = static_cast<double>(i) / static_cast<double>(total_steps);
       const double position = 0.5 * alpha;
       const std::array<double, 3> xyz = {position, position, position};
+      viewer.set_time_seconds(static_cast<double>(i) * std::chrono::duration<double>(tick).count());
       viewer.update_position(xyz);
       viewer.log_scalar("progress", alpha);
 

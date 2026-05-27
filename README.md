@@ -96,6 +96,7 @@ The plugin moves the three axes and adjusts the tool size according to the follo
 
 ```json
 {
+  "timecode": <elapsed seconds from last midnight>,
   "input": {"position": [<3 elements>]},
   "output": {
     "position": [<3 elements>],
@@ -111,6 +112,10 @@ The plugin moves the three axes and adjusts the tool size according to the follo
   }
 }
 ```
+
+The `timecode` field is required and is used as Rerun's time abscissa. It must be
+the elapsed seconds from the last midnight, rounded to the producer's 5 ms
+resolution.
 
 Only `["output"]["position"]` is used to move the axes. The remainig data are simply logged (and possibly plotted) by Rerun.
 
