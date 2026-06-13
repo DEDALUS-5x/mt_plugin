@@ -66,17 +66,20 @@ public:
     try {
       _viewer->set_time_seconds(parse_timecode(input));
 
-      if (input.contains("input") && input["input"]["setpoint"].is_array()) {
-        _viewer->log_scalar("setpoint_x", input["input"]["setpoint"][0].get<double>());
-        _viewer->log_scalar("setpoint_y", input["input"]["setpoint"][1].get<double>());
-        _viewer->log_scalar("setpoint_z", input["input"]["setpoint"][2].get<double>());
-        _viewer->log_scalar("setpoint_a", input["input"]["setpoint"][3].get<double>());
-        _viewer->log_scalar("setpoint_c", input["input"]["setpoint"][4].get<double>());
+      if (input.contains("input") && input["input"].is_object()) {
+        auto in_obj = input["input"];
+        if (in_obj.contains("setpoint") && in_obj["setpoint"].is_array() && in_obj["setpoint"].size() >= 5) {
+          _viewer->log_scalar("setpoint_x", in_obj["setpoint"][0].get<double>());
+          _viewer->log_scalar("setpoint_y", in_obj["setpoint"][1].get<double>());
+          _viewer->log_scalar("setpoint_z", in_obj["setpoint"][2].get<double>());
+          _viewer->log_scalar("setpoint_a", in_obj["setpoint"][3].get<double>());
+          _viewer->log_scalar("setpoint_c", in_obj["setpoint"][4].get<double>());
+        }
       }
 
-      if (input.contains("output")) {
+      if (input.contains("output") && input["output"].is_object()) {
         auto o = input["output"];
-        if (o.contains("position") && o["position"].is_array()) {
+        if (o.contains("position") && o["position"].is_array() && o["position"].size() >= 5) {
           _viewer->update_position(o["position"].get<array<double, 5>>());
           _viewer->log_scalar("output_x", o["position"][0].get<double>());
           _viewer->log_scalar("output_y", o["position"][1].get<double>());
@@ -84,7 +87,7 @@ public:
           _viewer->log_scalar("output_a", o["position"][3].get<double>());
           _viewer->log_scalar("output_c", o["position"][4].get<double>());
         }
-        if (o.contains("speed") && o["speed"].is_array()) { 
+        if (o.contains("speed") && o["speed"].is_array() && o["speed"].size() >= 5) { 
           _viewer->log_scalar("output_speed_x", o["speed"][0].get<double>());
           _viewer->log_scalar("output_speed_y", o["speed"][1].get<double>());
           _viewer->log_scalar("output_speed_z", o["speed"][2].get<double>());
@@ -158,7 +161,7 @@ public:
     _params["stacking"] = {
       {"x", "ground"},
       {"z", "x"},
-      {"y", "groudn"},
+      {"y", "ground"},
       {"a", "y"},
       {"c", "a"}
     };
@@ -299,6 +302,7 @@ private:
 
   static array<double, 5> parse_position(const json& value) {
     if (!value.is_array() || value.size() != 5) {
+      cerr << value.size() << endl;
       throw invalid_argument("Position must be an array of exactly 5 numbers.");
     }
     for(int i=0; i<5; i++){

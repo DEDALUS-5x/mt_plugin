@@ -283,6 +283,11 @@ private:
     _rec.log_static(_root_path, rerun::ViewCoordinates::RIGHT_HAND_Z_UP);
 
     for (const auto& part : kParts) {
+
+      if (part == "y" || part == "a") {
+        continue;
+      }
+      
       const auto model_path = resolve_model_path(part);
       if (!std::filesystem::exists(model_path)) {
         throw std::invalid_argument("MachineViewer model file not found: " + model_path.string());
@@ -328,12 +333,12 @@ MachineViewer::MachineViewer(MachineViewer&&) noexcept = default;
 MachineViewer& MachineViewer::operator=(MachineViewer&&) noexcept = default;
 
 void MachineViewer::update_position(const std::array<double, 5>& xyzac) {
-  std::array<double, 5> scaled = xyzac;
-  scaled[0] *= scale_factor; 
-  scaled[1] *= scale_factor; 
-  scaled[2] *= scale_factor; 
+  // std::array<double, 5> scaled = xyzac;
+  // scaled[0] *= scale_factor; 
+  // scaled[1] *= scale_factor; 
+  // scaled[2] *= scale_factor; 
   
-  _impl->update_position(scaled);
+  _impl->update_position(xyzac);
 }
 
 void MachineViewer::load_tool(double length, double diameter) {
