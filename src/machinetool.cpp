@@ -70,20 +70,26 @@ public:
         _viewer->log_scalar("setpoint_x", input["input"]["setpoint"][0].get<double>());
         _viewer->log_scalar("setpoint_y", input["input"]["setpoint"][1].get<double>());
         _viewer->log_scalar("setpoint_z", input["input"]["setpoint"][2].get<double>());
+        _viewer->log_scalar("setpoint_a", input["input"]["setpoint"][3].get<double>());
+        _viewer->log_scalar("setpoint_c", input["input"]["setpoint"][4].get<double>());
       }
 
       if (input.contains("output")) {
         auto o = input["output"];
         if (o.contains("position") && o["position"].is_array()) {
-          _viewer->update_position(o["position"].get<array<double, 3>>());
+          _viewer->update_position(o["position"].get<array<double, 5>>());
           _viewer->log_scalar("output_x", o["position"][0].get<double>());
           _viewer->log_scalar("output_y", o["position"][1].get<double>());
           _viewer->log_scalar("output_z", o["position"][2].get<double>());
+          _viewer->log_scalar("output_a", o["position"][3].get<double>());
+          _viewer->log_scalar("output_c", o["position"][4].get<double>());
         }
         if (o.contains("speed") && o["speed"].is_array()) { 
           _viewer->log_scalar("output_speed_x", o["speed"][0].get<double>());
           _viewer->log_scalar("output_speed_y", o["speed"][1].get<double>());
           _viewer->log_scalar("output_speed_z", o["speed"][2].get<double>());
+          _viewer->log_scalar("output_speed_a", o["speed"][3].get<double>());
+          _viewer->log_scalar("output_speed_c", o["speed"][4].get<double>());
         }
       }
     } catch (const exception& ex) {
@@ -152,15 +158,19 @@ public:
     _params["stacking"] = {
       {"x", "ground"},
       {"z", "x"},
-      {"y", "z"},
+      {"y", "groudn"},
+      {"a", "y"},
+      {"c", "a"}
     };
     _params["model_files"] = {
       {"ground", "ground.obj"},
       {"x", "x_axis.obj"},
       {"y", "y_axis.obj"},
       {"z", "z_axis.obj"},
+      {"a", "a_axis.obj"},
+      {"c", "c_axis.obj"}
     };
-    _params["initial_position"] = {0.0, 0.0, 0.0};
+    _params["initial_position"] = {0.0, 0.0, 0.0, 0.0, 0.0};
     _params["tool"] = json::object();
 
     // then merge the defaults with the actually provided parameters
@@ -287,15 +297,16 @@ private:
     return out;
   }
 
-  static array<double, 3> parse_position(const json& value) {
-    if (!value.is_array() || value.size() != 3) {
-      throw invalid_argument("Position must be an array of exactly 3 numbers.");
+  static array<double, 5> parse_position(const json& value) {
+    if (!value.is_array() || value.size() != 5) {
+      throw invalid_argument("Position must be an array of exactly 5 numbers.");
     }
-    if (!value[0].is_number() || !value[1].is_number() || !value[2].is_number()) {
-      throw invalid_argument("Position array must contain only numeric values.");
+    for(int i=0; i<5; i++){
+      if (!value[i].is_number()) {
+        throw invalid_argument("Position array must contain only numeric values.");
+      }
     }
-
-    return {value[0].get<double>(), value[1].get<double>(), value[2].get<double>()};
+    return {value[0].get<double>(), value[1].get<double>(), value[2].get<double>(), value[3].get<double>(), value[4].get<double>()};
   }
 
   static double parse_timecode(const json& input) {
@@ -357,7 +368,7 @@ int main(int argc, char const *argv[]) {
       {"y", "y_axis.obj"},
       {"z", "z_axis.obj"},
     };
-    params["initial_position"] = {0.0, 0.0, 0.0};
+    params["initial_position"] = {0.0, 0.0, 0.0, 0.0, 0.0};
     params["recording_name"] = "machinetool_plugin_test";
 
     plugin.set_params(params);
@@ -369,7 +380,7 @@ int main(int argc, char const *argv[]) {
       const double position = 0.5 * alpha;
       json input;
       input["timecode"] = static_cast<double>(i) * chrono::duration<double>(tick).count();
-      input["position"] = {position, position, position};
+      input["position"] = {position, position, position, position, position};
       input["metrics"] = {{"progress", alpha}};
 
       const auto result = plugin.load_data(input);

@@ -25,7 +25,7 @@ public:
   MachineViewer(MachineViewer&&) noexcept;
   MachineViewer& operator=(MachineViewer&&) noexcept;
 
-  void update_position(const std::array<double, 3>& xyz);
+  void update_position(const std::array<double, 5>& xyzac);
   void load_tool(double length, double diameter);
   void unload_tool();
   void set_time_seconds(double seconds);

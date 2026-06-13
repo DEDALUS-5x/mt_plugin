@@ -17,11 +17,11 @@
 
 namespace {
 
-constexpr std::array<const char*, 3> kAxes = {"x", "y", "z"};
-constexpr std::array<const char*, 4> kParts = {"ground", "x", "y", "z"};
+constexpr std::array<const char*, 5> kAxes = {"x", "y", "z", "a", "c"};
+constexpr std::array<const char*, 6> kParts = {"ground", "x", "y", "z", "a", "c"};
 
 bool is_axis(const std::string& name) {
-  return name == "x" || name == "y" || name == "z";
+  return name == "x" || name == "y" || name == "z" || name == "a" || name == "c";
 }
 
 bool is_part(const std::string& name) {
@@ -33,15 +33,15 @@ std::string sanitize_metric_name(std::string name) {
   return name;
 }
 
-rerun::datatypes::Vec3D axis_translation(const std::string& axis, double value) {
+rerun::Transform3D axis_transform(const std::string& axis, double value) {
   const auto v = static_cast<float>(value);
-  if (axis == "x") {
-    return rerun::datatypes::Vec3D(v, 0.0F, 0.0F);
-  }
-  if (axis == "y") {
-    return rerun::datatypes::Vec3D(0.0F, v, 0.0F);
-  }
-  return rerun::datatypes::Vec3D(0.0F, 0.0F, v);
+  if (axis == "x") return rerun::Transform3D(rerun::components::Translation3D(v, 0.0F, 0.0F));
+  if (axis == "y") return rerun::Transform3D(rerun::components::Translation3D(0.0F, v, 0.0F));
+  if (axis == "z") return rerun::Transform3D(rerun::components::Translation3D(0.0F, 0.0F, v));
+  if (axis == "a") return rerun::Transform3D(rerun::datatypes::RotationAxisAngle({1.0F, 0.0F, 0.0F}, rerun::datatypes::Angle::degrees(v)));
+  if (axis == "c") return rerun::Transform3D(rerun::datatypes::RotationAxisAngle({0.0F, 0.0F, 1.0F}, rerun::datatypes::Angle::degrees(v)));
+  
+  return rerun::Transform3D(rerun::components::Translation3D(0.0F, 0.0F, 0.0F));
 }
 
 }  // namespace
@@ -62,25 +62,24 @@ struct MachineViewer::Impl {
     validate_configuration();
     build_entity_paths();
     initialize_viewer();
-    update_position({0.0, 0.0, 0.0});
+    update_position({0.0, 0.0, 0.0, 0.0, 0.0});
   }
 
   void set_time_seconds(double seconds) {
     _rec.set_time_duration_secs("time", seconds);
   }
 
-  void update_position(const std::array<double, 3>& xyz) {
+  void update_position(const std::array<double, 5>& xyzac) {
     for (std::size_t i = 0; i < kAxes.size(); ++i) {
       const std::string axis = kAxes[i];
-      const auto translation = rerun::components::Translation3D(axis_translation(axis, xyz[i]));
-      _rec.log(_entity_paths.at(axis), rerun::Transform3D(translation));
+      _rec.log(_entity_paths.at(axis), axis_transform(axis, xyzac[i]));
     }
 
     if (_tool_loaded) {
       const auto tip = rerun::datatypes::Vec3D(
-        static_cast<float>(xyz[0]),
-        static_cast<float>(xyz[1]),
-        static_cast<float>(xyz[2] - _tool_length + _tool_z_offset)
+        static_cast<float>(xyzac[0]),
+        static_cast<float>(xyzac[1]),
+        static_cast<float>(xyzac[2] - _tool_length + _tool_z_offset)
       );
       _tool_tip_trace.emplace_back(tip);
 
@@ -328,11 +327,13 @@ MachineViewer::~MachineViewer() = default;
 MachineViewer::MachineViewer(MachineViewer&&) noexcept = default;
 MachineViewer& MachineViewer::operator=(MachineViewer&&) noexcept = default;
 
-void MachineViewer::update_position(const std::array<double, 3>& xyz) {
-  for (auto& v : const_cast<std::array<double, 3>&>(xyz)) {
-    v *= scale_factor; // Convert from millimeters to meters (viewer only)
-  }
-  _impl->update_position(xyz);
+void MachineViewer::update_position(const std::array<double, 5>& xyzac) {
+  std::array<double, 5> scaled = xyzac;
+  scaled[0] *= scale_factor; 
+  scaled[1] *= scale_factor; 
+  scaled[2] *= scale_factor; 
+  
+  _impl->update_position(scaled);
 }
 
 void MachineViewer::load_tool(double length, double diameter) {

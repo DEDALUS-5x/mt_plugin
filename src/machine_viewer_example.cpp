@@ -40,7 +40,9 @@ int main(int argc, char* argv[]) {
     const std::map<std::string, std::string> linkages = {
       {"x", "ground"},
       {"z", "x"},
-      {"y", "z"},
+      {"y", "groudn"},
+      {"a", "y"},
+      {"c", "a"}
     };
 
     const std::map<std::string, std::string> model_files = {
@@ -48,6 +50,8 @@ int main(int argc, char* argv[]) {
       {"x", "x_axis.obj"},
       {"y", "y_axis.obj"},
       {"z", "z_axis.obj"},
+      {"a", "a_axis.obj"},
+      {"c", "c_axis.obj"}
     };
 
     MachineViewer viewer(models_dir, linkages, model_files, "machine_viewer_example");
@@ -57,9 +61,9 @@ int main(int argc, char* argv[]) {
     for (int i = 0; i <= total_steps; ++i) {
       const double alpha = static_cast<double>(i) / static_cast<double>(total_steps);
       const double position = 0.5 * alpha;
-      const std::array<double, 3> xyz = {position, position, position};
+      const std::array<double, 5> xyzac = {position, position, position, position, position};
       viewer.set_time_seconds(static_cast<double>(i) * std::chrono::duration<double>(tick).count());
-      viewer.update_position(xyz);
+      viewer.update_position(xyzac);
       viewer.log_scalar("progress", alpha);
 
       if (i < total_steps) {
