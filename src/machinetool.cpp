@@ -159,8 +159,8 @@ public:
     _params["models_path"] = "models";
     _params["recording_name"] = "machinetool";
     _params["stacking"] = {
-      {"x", "ground"},
-      {"z", "x"},
+      {"x", "z"},
+      {"z", "ground"},
       {"y", "ground"},
       {"a", "y"},
       {"c", "a"}
