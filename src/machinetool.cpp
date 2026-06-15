@@ -167,9 +167,9 @@ public:
     };
     _params["model_files"] = {
       {"ground", "ground.obj"},
-      {"x", "x_axis.obj"},
+      {"z", "x_axis.obj"},
       {"y", "y_axis.obj"},
-      {"z", "z_axis.obj"},
+      {"x", "z_axis.obj"},
       {"a", "a_axis.obj"},
       {"c", "c_axis.obj"}
     };
@@ -362,7 +362,7 @@ int main(int argc, char const *argv[]) {
 
     params["models_path"] = argc > 1 ? argv[1] : "models";
     params["stacking"] = {
-      {"x", "ground"},
+      {"x", "z"},
       {"z", "x"},
       {"y", "z"},
     };
